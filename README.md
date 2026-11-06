@@ -1,3 +1,5 @@
+让deepseek harness linux 采用  https://github.com/Mag1cFall/AIStudio2API  转化出来的gemini api:
+
       $ cat ~/.dsh/profiles/desktop/cordis.patch.yml
       - id: llm-pi-ai
         name: "@deepseek-ai/dsh-llm-pi-ai"
@@ -5,9 +7,9 @@
           providers:
             local-proxy:
               apiKeyEnv: DEEPSEEK_API_KEY
-              displayName: Local 192.168.2.103
+              displayName: Local 192.168.0.2
               api: openai-completions
-              baseURL: http://192.168.2.103:2048/v1
+              baseURL: http://192.168.0.2:2048/v1
               compat:
                 supportsDeveloperRole: false
                 maxTokensField: max_tokens
