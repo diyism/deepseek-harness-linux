@@ -1,3 +1,51 @@
+      $ cat ~/.dsh/profiles/desktop/cordis.patch.yml
+      - id: llm-pi-ai
+        name: "@deepseek-ai/dsh-llm-pi-ai"
+        config:
+          providers:
+            local-proxy:
+              apiKeyEnv: DEEPSEEK_API_KEY
+              displayName: Local 192.168.2.103
+              api: openai-completions
+              baseURL: http://192.168.2.103:2048/v1
+              compat:
+                supportsDeveloperRole: false
+                maxTokensField: max_tokens
+              models:
+                - id: gemini-3.8-flash-build
+                  name: gemini-3.8-flash-build
+                  contextWindow: 1000000
+                  maxTokens: 65536
+      
+      - id: ui-chat
+        name: "@deepseek-ai/dsh-client-ui-chat"
+        config:
+          transcriptView: standard
+          performanceUsage: detailed
+      - id: ui-settings
+        name: "@deepseek-ai/dsh-client-ui-settings"
+        config:
+          enabled: true
+      - id: ui-settings-account
+        name: "@deepseek-ai/dsh-client-ui-settings-account"
+        config:
+          version: 1
+          step: done
+          usage: detailed
+          developerTools: true
+          purpose: null
+          process: standard
+          completion: api-key
+      
+      - id: agent-default-model
+        name: "@deepseek-ai/dsh-agent-default-model"
+        config:
+          provider: local-proxy
+          model: gemini-3.8-flash-build
+
+
+=======================================================================
+
 # DeepSeek Harness · Linux 桌面版
 
 > 给官方 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 桌面端补上**社区 Linux 桌面端打包** —— 开源（MIT）DeepSeek 桌面客户端，开箱即用的 AppImage / `.deb` / `.tar.gz`，覆盖 x64 与 arm64 双架构，配套原生 CI 与 AppImage 自动更新。
