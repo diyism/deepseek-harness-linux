@@ -95,12 +95,28 @@ if target in s:
           content = f.read()
       
       target = "return workspace === void 0 ? `session:${sessionId}` : `cwd:${workspace.path}`;"
-      replacement = "return `persist:session:${sessionId}`; // partitioned by session"
+      replacement = "return `session:${sessionId}`; // partitioned by session"
       
       if target in content:
           with open(file_path, "w", encoding="utf-8") as f:
               f.write(content.replace(target, replacement, 1))
           print("Successfully patched sidebar browser to partition by session!")
+      else:
+          print("Target snippet not found or already patched.")
+      '
+
+      sudo python3 -c '
+      file_path = "/opt/DeepSeek Harness/resources/app/lib/main.js"
+      with open(file_path, "r", encoding="utf-8") as f:
+          content = f.read()
+      
+      target = "partition = `dsh-sidebar-browser-${randomUUID()}`;"
+      replacement = "partition = `persist:dsh-sidebar-browser-${createHash(\"sha256\").update(workspace).digest(\"hex\")}`;"
+      
+      if target in content:
+          with open(file_path, "w", encoding="utf-8") as f:
+              f.write(content.replace(target, replacement, 1))
+          print("Main process successfully patched to support persistent session partitions!")
       else:
           print("Target snippet not found or already patched.")
       '
