@@ -123,7 +123,7 @@ if target in s:
     '
 -----------------------------------------------------------------------
 
-解决 第三方网站经google弹窗登录失败的问题:
+解决sidebar浏览器里 第三方网站经google弹窗登录失败的问题:
     sudo python3 -c '
     import re, shutil
     
@@ -158,6 +158,27 @@ if target in s:
         print("[+] 修改成功！备份文件已保存为 main.js.bak")
     else:
         print("[!] 未找到目标代码块，请检查文件版本。")
+    '
+
+解决侧边栏浏览器alert弹窗无效的问题:
+    sudo python3 -c '
+    file_path = "/opt/DeepSeek Harness/resources/app/lib/main.js"
+    
+    with open(file_path, "r", encoding="utf-8") as f:
+        content = f.read()
+    
+    target = "disableDialogs: true,"
+    replacement = "disableDialogs: false,"
+    
+    if target in content:
+        content = content.replace(target, replacement, 1)
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(content)
+        print("[+] 成功将 disableDialogs 修改为 false！重启 DSH 后生效。")
+    elif replacement in content:
+        print("[-] 已经是 false，无需重复修改。")
+    else:
+        print("[!] 未找到 disableDialogs 字段。")
     '
 
 ==============================================================================
