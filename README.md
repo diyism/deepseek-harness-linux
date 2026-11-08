@@ -87,6 +87,26 @@ if target in s:
 
 -----------------------------------------------------------------------
 
+直接按对话session来区分sidebar浏览器的cookie隔离:
+
+      sudo python3 -c '
+      file_path = "/opt/DeepSeek Harness/resources/app/dsh/node_modules/@deepseek-ai/dsh-client-ui-sidebar-browser/lib/client.js"
+      with open(file_path, "r", encoding="utf-8") as f:
+          content = f.read()
+      
+      target = "return workspace === void 0 ? `session:${sessionId}` : `cwd:${workspace.path}`;"
+      replacement = "return `session:${sessionId}`; // partitioned by session"
+      
+      if target in content:
+          with open(file_path, "w", encoding="utf-8") as f:
+              f.write(content.replace(target, replacement, 1))
+          print("Successfully patched sidebar browser to partition by session!")
+      else:
+          print("Target snippet not found or already patched.")
+      '
+
+==============================================================================
+
 # DeepSeek Harness · Linux 桌面版
 
 > 给官方 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 桌面端补上**社区 Linux 桌面端打包** —— 开源（MIT）DeepSeek 桌面客户端，开箱即用的 AppImage / `.deb` / `.tar.gz`，覆盖 x64 与 arm64 双架构，配套原生 CI 与 AppImage 自动更新。
