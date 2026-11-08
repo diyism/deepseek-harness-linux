@@ -87,7 +87,7 @@ if target in s:
 
 -----------------------------------------------------------------------
 
-### 直接按对话session来区分sidebar浏览器的cookie隔离:
+### 直接按对话session来区分sidebar浏览器的cookie隔离(把deepseek harness linux的sidebar浏览器当作firefox Multi-Account containers来用):
 
       sudo python3 -c '
       file_path = "/opt/DeepSeek Harness/resources/app/dsh/node_modules/@deepseek-ai/dsh-client-ui-sidebar-browser/lib/client.js"
