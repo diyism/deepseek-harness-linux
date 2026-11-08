@@ -45,8 +45,47 @@
           provider: local-proxy
           model: gemini-3.8-flash-build
 
+-----------------------------------------------------------------------
 
-=======================================================================
+### 安装并启用侧边栏浏览器控制插件（dsh-builtin-browser）
+
+为使 DeepSeek Harness 在 Linux 下能够直接驱动和读取**官方桌面侧边栏浏览器**（包括获取当前打开页面的 URL、读取 DOM、点击与自动化操作），需安装 `dsh-builtin-browser` 并完成 Linux 桥接：
+
+#### 1. 安装插件到桌面端 Profile
+```bash
+"/opt/DeepSeek Harness/resources/runtime/cli/bin/dsh" plugin --profile desktop add dsh-builtin-browser
+```
+
+#### 2. 安装侧栏 Bridge 钩子
+退出 DeepSeek Harness 桌面端（确保后台无残留进程），使用 `sudo` 将 bridge 注入到客户端的资源目录：
+```bash
+sudo node ~/.dsh/profiles/desktop/node_modules/dsh-builtin-browser/desktop-bridge/install.mjs "/opt/DeepSeek Harness"
+```
+
+#### 3. 修复 Linux 路径探测（解决设置中误报 Not Ready）
+插件原本仅通过 `%LOCALAPPDATA%` 探测 Windows 安装目录，在 Linux 下会导致就绪状态误判为 `Not ready`。运行以下命令一键修复探测逻辑：
+```bash
+python3 -c '
+import os
+path = os.path.expanduser("~/.dsh/profiles/desktop/node_modules/dsh-builtin-browser/lib/browser-electron/bridge-status.js")
+with open(path, "r", encoding="utf-8") as f:
+    s = f.read()
+
+target = "export function findDesktopInstall(localAppData = process.env.LOCALAPPDATA ?? \x27\x27) {\n    if (localAppData === \x27\x27)\n        return undefined;"
+replacement = "export function findDesktopInstall(localAppData = process.env.LOCALAPPDATA ?? \x27\x27) {\n    for (const linuxPath of [\x27/opt/DeepSeek Harness\x27, \x27/opt/DSH Desktop\x27]) {\n        if (readDesktopIdentity(linuxPath).ok || safeExists(join(linuxPath, \x27resources\x27, \x27app.asar\x27))) return linuxPath;\n    }\n    if (localAppData === \x27\x27)\n        return undefined;"
+
+if target in s:
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(s.replace(target, replacement, 1))
+    print("Linux desktop path detection patched successfully.")
+'
+```
+
+#### 4. 启动与验证
+重新启动桌面端, 打开 **设置 → 浏览器**，首选载体选择 **DSH 侧栏 (DSH Sidebar Browser)**，此时就绪状态（Readiness）将显示为绿色 **可用（Ready）**。对话中 Agent 即可实时读取侧栏当前网页 URL 并进行自动化交互。
+
+
+-----------------------------------------------------------------------
 
 # DeepSeek Harness · Linux 桌面版
 
