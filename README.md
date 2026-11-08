@@ -121,6 +121,44 @@ if target in s:
     else:
         print("Target snippet not found or already patched.")
     '
+-----------------------------------------------------------------------
+
+解决 第三方网站经google弹窗登录失败的问题:
+    sudo python3 -c '
+    import re, shutil
+    
+    file_path = "/opt/DeepSeek Harness/resources/app/lib/main.js"
+    shutil.copyfile(file_path, file_path + ".bak")
+    
+    with open(file_path, "r", encoding="utf-8") as f:
+        content = f.read()
+    
+    target = "\t\t\tguest.setWindowOpenHandler(({ url, postBody }) => {\n"
+    replacement = target + """\t\t\t\tif (url.startsWith("https://accounts.google.com/")) {
+    \t\t\t\t\treturn {
+    \t\t\t\t\t\taction: "allow",
+    \t\t\t\t\t\toverrideBrowserWindowOptions: {
+    \t\t\t\t\t\t\tparent: owner,
+    \t\t\t\t\t\t\tmodal: false,
+    \t\t\t\t\t\t\twebPreferences: {
+    \t\t\t\t\t\t\t\tnodeIntegration: false,
+    \t\t\t\t\t\t\t\tcontextIsolation: true
+    \t\t\t\t\t\t\t}
+    \t\t\t\t\t\t}
+    \t\t\t\t\t};
+    \t\t\t\t}
+    """
+    
+    if "url.startsWith(\"https://accounts.google.com/\")" in content:
+        print("[-] 已经添加过该代码，无需重复修改！")
+    elif target in content:
+        new_content = content.replace(target, replacement, 1)
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(new_content)
+        print("[+] 修改成功！备份文件已保存为 main.js.bak")
+    else:
+        print("[!] 未找到目标代码块，请检查文件版本。")
+    '
 
 ==============================================================================
 
