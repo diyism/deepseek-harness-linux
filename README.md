@@ -90,37 +90,37 @@ if target in s:
 ### session-cookie
 直接按对话session来区分sidebar浏览器的cookie隔离(把deepseek harness linux的sidebar浏览器当作firefox Multi-Account containers来用):
 
-      sudo python3 -c '
-      file_path = "/opt/DeepSeek Harness/resources/app/dsh/node_modules/@deepseek-ai/dsh-client-ui-sidebar-browser/lib/client.js"
-      with open(file_path, "r", encoding="utf-8") as f:
-          content = f.read()
-      
-      target = "return workspace === void 0 ? `session:${sessionId}` : `cwd:${workspace.path}`;"
-      replacement = "return `session:${sessionId}`; // partitioned by session"
-      
-      if target in content:
-          with open(file_path, "w", encoding="utf-8") as f:
-              f.write(content.replace(target, replacement, 1))
-          print("Successfully patched sidebar browser to partition by session!")
-      else:
-          print("Target snippet not found or already patched.")
-      '
+    sudo python3 -c '
+    file_path = "/opt/DeepSeek Harness/resources/app/dsh/node_modules/@deepseek-ai/dsh-client-ui-sidebar-browser/lib/client.js"
+    with open(file_path, "r", encoding="utf-8") as f:
+    content = f.read()
 
-      sudo python3 -c '
-      file_path = "/opt/DeepSeek Harness/resources/app/lib/main.js"
-      with open(file_path, "r", encoding="utf-8") as f:
-          content = f.read()
-      
-      target = "partition = `dsh-sidebar-browser-${randomUUID()}`;"
-      replacement = "partition = `persist:dsh-sidebar-browser-${createHash(\"sha256\").update(workspace).digest(\"hex\")}`;"
-      
-      if target in content:
-          with open(file_path, "w", encoding="utf-8") as f:
-              f.write(content.replace(target, replacement, 1))
-          print("Main process successfully patched to support persistent session partitions!")
-      else:
-          print("Target snippet not found or already patched.")
-      '
+    target = "return workspace === void 0 ? `session:${sessionId}` : `cwd:${workspace.path}`;"
+    replacement = "return `session:${sessionId}`; // partitioned by session"
+
+    if target in content:
+    with open(file_path, "w", encoding="utf-8") as f:
+    f.write(content.replace(target, replacement, 1))
+    print("Successfully patched sidebar browser to partition by session!")
+    else:
+    print("Target snippet not found or already patched.")
+    '
+
+    sudo python3 -c '
+    file_path = "/opt/DeepSeek Harness/resources/app/lib/main.js"
+    with open(file_path, "r", encoding="utf-8") as f:
+    content = f.read()
+
+    target = "partition = `dsh-sidebar-browser-${randomUUID()}`;"
+    replacement = "partition = `persist:dsh-sidebar-browser-${createHash(\"sha256\").update(workspace).digest(\"hex\")}`;"
+
+    if target in content:
+    with open(file_path, "w", encoding="utf-8") as f:
+    f.write(content.replace(target, replacement, 1))
+    print("Main process successfully patched to support persistent session partitions!")
+    else:
+    print("Target snippet not found or already patched.")
+    '
 
 ==============================================================================
 
