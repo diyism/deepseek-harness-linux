@@ -16,8 +16,8 @@
               models:
                 - id: gemini-3.8-flash-build
                   name: gemini-3.8-flash-build
-                  contextWindow: 1000000
-                  maxTokens: 65536
+                  contextWindow: 262144
+                  maxTokens: 16384
       
       - id: ui-chat
         name: "@deepseek-ai/dsh-client-ui-chat"
