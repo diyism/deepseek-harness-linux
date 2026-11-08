@@ -95,7 +95,7 @@ if target in s:
           content = f.read()
       
       target = "return workspace === void 0 ? `session:${sessionId}` : `cwd:${workspace.path}`;"
-      replacement = "return `session:${sessionId}`; // partitioned by session"
+      replacement = "return `persist:session:${sessionId}`; // partitioned by session"
       
       if target in content:
           with open(file_path, "w", encoding="utf-8") as f:
