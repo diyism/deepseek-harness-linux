@@ -124,6 +124,7 @@ if target in s:
 -----------------------------------------------------------------------
 
 解决sidebar浏览器里 第三方网站经google弹窗登录失败的问题:
+
     sudo python3 -c '
     import re, shutil
     
@@ -160,7 +161,10 @@ if target in s:
         print("[!] 未找到目标代码块，请检查文件版本。")
     '
 
+-----------------------------------------------------------------------
+
 解决侧边栏浏览器alert弹窗无效的问题:
+
     sudo python3 -c '
     file_path = "/opt/DeepSeek Harness/resources/app/lib/main.js"
     
