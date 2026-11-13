@@ -1,4 +1,4 @@
-让deepseek harness linux 采用  https://github.com/Mag1cFall/AIStudio2API  转化出来的gemini api:
+让deepseek harness linux 采用  https://github.com/Mag1cFall/AIStudio2API  转化出来的gemini api  或者  muse  或者  本地xLAM-2-8b-fc-r:
 
     $ cat ~/.dsh/profiles/desktop/cordis.patch.yml
     - id: llm-pi-ai
@@ -6,18 +6,45 @@
         config:
         providers:
             local-proxy:
-            apiKeyEnv: DEEPSEEK_API_KEY
-            displayName: Local 192.168.0.2
-            api: openai-completions
-            baseURL: http://192.168.0.2:2048/v1
-            compat:
-                supportsDeveloperRole: false
-                maxTokensField: max_tokens
-            models:
-                - id: gemini-3.8-flash-build
-                name: gemini-3.8-flash-build
-                contextWindow: 262144
-                maxTokens: 16384
+                apiKeyEnv: DEEPSEEK_API_KEY
+                displayName: gemini
+                api: openai-completions
+                baseURL: http://192.168.0.2:2048/v1
+                compat:
+                    supportsDeveloperRole: false
+                    maxTokensField: max_tokens
+                models:
+                    - id: gemini-3.8-flash-build
+                    name: gemini-3.8-flash-build
+                    contextWindow: 262144
+                    maxTokens: 16384
+            local-proxy1:
+                apiKeyEnv: DEEPSEEK_API_KEY
+                displayName: muse
+                api: openai-completions
+                baseURL: http://192.168.0.2:8787/v1
+                compat:
+                  supportsDeveloperRole: false
+                  maxTokensField: max_tokens
+                models:
+                  - id: muse-spark-1.3
+                    name: muse-spark-1.3
+                    contextWindow: 262144
+                    maxTokens: 16384
+            local-proxy3:
+                apiKeyEnv: DEEPSEEK_API_KEY
+                displayName: Local xLAM-2-8b-fc-r
+                api: openai-completions
+                baseURL: http://127.0.0.1:11434/v1
+                compat:
+                  supportsDeveloperRole: false
+                  maxTokensField: max_tokens
+                models:
+                  - id: "/home/box/llm/Llama-xLAM-2-8B-fc-r-Q4_K_M.gguf"
+                    name: xLAM-2-8b-fc-r
+                    contextWindow: 32768
+                    maxTokens: 2048
+            
 
     - id: ui-chat
         name: "@deepseek-ai/dsh-client-ui-chat"
