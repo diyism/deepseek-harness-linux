@@ -212,6 +212,70 @@ if target in s:
         print("[!] 未找到 disableDialogs 字段。")
     '
 
+-----------------------------------------------------------------------
+
+解决侧边栏浏览器没有鼠标右键菜单复制链接的问题:
+
+    sudo python3 - <<'EOF'
+    import os, shutil, sys
+    MAIN = "/opt/DeepSeek Harness/resources/app/lib/main.js"
+    MARKER = "DSH-CONTEXTMENU-WEBVIEW"
+    BLOCK = """
+    \t// DSH-CONTEXTMENU-WEBVIEW: sidebar browser pages are webview guests; give them a context menu.
+    \tapp.on("web-contents-created", (_event, contents) => {
+    \t\tif (contents.getType() !== "webview") return;
+    \t\tcontents.on("context-menu", (_menuEvent, params) => {
+    \t\t\tconst items = [];
+    \t\t\tif (params.linkURL) items.push({
+    \t\t\t\tlabel: "复制链接地址",
+    \t\t\t\tclick: () => clipboard.writeText(params.linkURL)
+    \t\t\t}, {
+    \t\t\t\tlabel: "在浏览器中打开链接",
+    \t\t\t\tclick: () => shell.openExternal(params.linkURL)
+    \t\t\t});
+    \t\t\tif (params.selectionText.length > 0) items.push({
+    \t\t\t\trole: "copy",
+    \t\t\t\tenabled: params.editFlags.canCopy
+    \t\t\t});
+    \t\t\tif (params.isEditable) items.push({
+    \t\t\t\trole: "cut",
+    \t\t\t\tenabled: params.editFlags.canCut
+    \t\t\t}, {
+    \t\t\t\trole: "paste",
+    \t\t\t\tenabled: params.editFlags.canPaste
+    \t\t\t});
+    \t\t\tif (params.srcURL) items.push({
+    \t\t\t\tlabel: "复制图片地址",
+    \t\t\t\tclick: () => clipboard.writeText(params.srcURL)
+    \t\t\t});
+    \t\t\tif (items.length > 0) Menu.buildFromTemplate(items).popup();
+    \t\t});
+    \t});
+    """
+    text = open(MAIN, encoding="utf-8").read()
+    if MARKER in text:
+        print("already patched, nothing to do")
+        sys.exit(0)
+    lines = text.split("\n")
+    ctx = [i for i, l in enumerate(lines) if 'window.webContents.on("context-menu"' in l]
+    if len(ctx) != 1:
+        print("anchor context-menu not unique, abort")
+        sys.exit(1)
+    nav = [i for i in range(ctx[0], len(lines)) if lines[i].strip().startswith('window.webContents.on("will-navigate"')]
+    if not nav:
+        print("anchor will-navigate not found, abort")
+        sys.exit(1)
+    bak = MAIN + ".before-contextmenu"
+    if not os.path.exists(bak):
+        shutil.copyfile(MAIN, bak)
+        print("backup:", bak)
+    lines[nav[0]:nav[0]] = BLOCK.strip("\n").split("\n")
+    open(MAIN, "w", encoding="utf-8").write("\n".join(lines))
+    after = open(MAIN, encoding="utf-8").read()
+    print("patched OK" if MARKER in after else "VERIFY FAILED")
+    EOF
+
+
 ==============================================================================
 
 # DeepSeek Harness · Linux 桌面版
