@@ -611,6 +611,188 @@ if target in s:
     print("done -- restart DeepSeek Harness, then Ctrl+F in a sidebar browser tab.")
     EOF
 
+-----------------------------------------------------------------------
+
+突出右侧边栏, 把右栏启动时默认比例从45%调到66.7%:
+
+    sudo python3 - <<'EOF'
+    #!/usr/bin/env python3
+    """DSH three-column widths patch — one-click script.
+    
+    Target (verified 2026-11-15 on the installed build):
+      /opt/DeepSeek Harness/resources/app/dsh/node_modules/@deepseek-ai/dsh-client-ui-layout/lib/client.js
+      package @deepseek-ai/dsh-client-ui-layout 0.2.1-rc.2, 719 lines.
+    
+    The installed 0.2.1-rc.2 bundle INLINES the layout constants as literals
+    (master source names them SIDEBAR_DEFAULT / CENTER_MIN / RIGHTBAR_DEFAULT_RATIO),
+    so the 3 logical changes become 7 literal edits:
+    
+      RIGHTBAR_DEFAULT_RATIO 0.45 -> 0.667
+        L17  const RIGHTBAR_DEFAULT_RATIO = .45;              (declaration; openRightbar uses it)
+        L240 layoutInfo.rightbar ?? viewport * .45            (AppFrame live fallback, inlined)
+      CENTER_MIN 400 -> 370
+        L40  const available = viewport - s - 400;            (computeColumns)
+        L321 minmax(${cols.rightbar === 0 ? 0 : 400}px, 1fr)  (grid template)
+      SIDEBAR_DEFAULT 280 -> 264
+        L396 sidebar: 280,                                    (store init)
+        L239 layoutInfo.sidebar === 0 ? 280 : layoutInfo.sidebar  (AppFrame preference)
+        L420 d.layoutInfo.sidebar === 0 ? 280 : 0             (toggle reopen)
+    
+    Result at a 1918px viewport: 264 : 375 : 1279.
+    SIDEBAR_MIN (264) and RIGHTBAR_MAX_RATIO (0.7) are untouched.
+    
+    Run in your own terminal (DSH bash cannot sudo):
+      sudo python3 - <<'EOF'
+      ... (this whole script) ...
+      EOF
+    Then restart DSH. Re-run after DSH updates (they overwrite client.js).
+    Backup: client.js.before-widths (created once, never overwritten).
+    Idempotent: re-running reports "already patched" and changes nothing.
+    """
+    import os
+    import re
+    import shutil
+    import subprocess
+    import sys
+    
+    CLIENT = os.environ.get(
+        "DSH_WIDTHS_CLIENT",
+        "/opt/DeepSeek Harness/resources/app/dsh/node_modules/@deepseek-ai/dsh-client-ui-layout/lib/client.js",
+    )
+    BACKUP = CLIENT + ".before-widths"
+    
+    # (label, old, new) — each old string must occur exactly once.
+    EDITS = [
+        ("ratio declaration (L17)",
+         "const RIGHTBAR_DEFAULT_RATIO = .45;",
+         "const RIGHTBAR_DEFAULT_RATIO = .667;"),
+        ("ratio fallback (L240)",
+         "layoutInfo.rightbar ?? viewport * .45",
+         "layoutInfo.rightbar ?? viewport * .667"),
+        ("center-min in computeColumns (L40)",
+         "const available = viewport - s - 400;",
+         "const available = viewport - s - 370;"),
+        ("center-min in grid (L321)",
+         "minmax(${cols.rightbar === 0 ? 0 : 400}px, 1fr)",
+         "minmax(${cols.rightbar === 0 ? 0 : 370}px, 1fr)"),
+        ("sidebar default init (L396)",
+         "sidebar: 280,",
+         "sidebar: 264,"),
+        ("sidebar default preference (L239)",
+         "layoutInfo.sidebar === 0 ? 280 : layoutInfo.sidebar",
+         "layoutInfo.sidebar === 0 ? 264 : layoutInfo.sidebar"),
+        ("sidebar default toggle (L420)",
+         "d.layoutInfo.sidebar === 0 ? 280 : 0",
+         "d.layoutInfo.sidebar === 0 ? 264 : 0"),
+    ]
+    
+    VIEWPORT = 1918
+    WANT_RIGHTBAR = 1279
+    
+    
+    def node_check(path):
+        """True = parses OK, False = syntax error, None = node unavailable."""
+        try:
+            r = subprocess.run(["node", "--check", path],
+                               capture_output=True, text=True, timeout=30)
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            return None
+        return r.returncode == 0
+    
+    
+    def main():
+        if not os.path.isfile(CLIENT):
+            print("ERROR: client.js not found:", CLIENT)
+            return 1
+        with open(CLIENT, encoding="utf-8", errors="surrogateescape") as f:
+            content = f.read()
+    
+        # Guard: the rightbar cap (viewport * RIGHTBAR_MAX_RATIO) must not clip
+        # the wanted 1279px.
+        m = re.search(r"RIGHTBAR_MAX_RATIO\s*=\s*([0-9.]+)", content)
+        if m:
+            cap = VIEWPORT * float(m.group(1))
+            print("RIGHTBAR_MAX_RATIO = %s -> cap at %dpx viewport: %.0fpx"
+                  % (m.group(1), VIEWPORT, cap))
+            if cap < WANT_RIGHTBAR:
+                print("ERROR: cap %.0fpx < wanted %dpx — aborting, nothing changed."
+                      % (cap, WANT_RIGHTBAR))
+                return 1
+        else:
+            print("WARNING: RIGHTBAR_MAX_RATIO declaration not found; "
+                  "cap check skipped.")
+    
+        todo = []
+        for label, old, new in EDITS:
+            n_old = content.count(old)
+            n_new = content.count(new)
+            if n_old == 0 and n_new >= 1:
+                print("already done: %s" % label)
+            elif n_old == 1:
+                todo.append((label, old, new))
+            else:
+                print("ERROR: %s: expected old string once, found %d "
+                      "(new: %d) — aborting, nothing changed."
+                      % (label, n_old, n_new))
+                return 1
+        if not todo:
+            print("Already patched: all 7 edits present. Nothing to do.")
+            return 0
+    
+        baseline = node_check(CLIENT)
+        if baseline is None:
+            print("node not found — skipping syntax validation.")
+        elif not baseline:
+            print("Original client.js fails node --check — skipping validation "
+                  "(bundle may use ESM syntax).")
+        else:
+            print("Original client.js passes node --check.")
+    
+        if not os.path.exists(BACKUP):
+            shutil.copy2(CLIENT, BACKUP)
+            print("Backup created:", BACKUP)
+        else:
+            print("Backup already exists (kept):", BACKUP)
+    
+        new_content = content
+        for label, old, new in todo:
+            new_content = new_content.replace(old, new, 1)
+            print("patched: %s" % label)
+        with open(CLIENT, "w", encoding="utf-8", errors="surrogateescape") as f:
+            f.write(new_content)
+    
+        # Verify: every new string present exactly once, every old string gone.
+        with open(CLIENT, encoding="utf-8", errors="surrogateescape") as f:
+            check = f.read()
+        ok = True
+        for label, old, new in EDITS:
+            if check.count(new) != 1 or check.count(old) != 0:
+                print("VERIFY FAILED: %s (new=%d, old=%d)"
+                      % (label, check.count(new), check.count(old)))
+                ok = False
+        if not ok:
+            shutil.copy2(BACKUP, CLIENT)
+            print("Restored original from backup. Aborting.")
+            return 1
+    
+        if baseline is True:
+            if node_check(CLIENT):
+                print("Patched client.js passes node --check.")
+            else:
+                shutil.copy2(BACKUP, CLIENT)
+                print("Patched client.js FAILS node --check — restored original.")
+                return 1
+    
+        print("Done: %d edit(s) applied. Restart DSH to take effect." % len(todo))
+        print("Expected columns at 1918px: 264 : 375 : 1279.")
+        return 0
+    
+    
+    if __name__ == "__main__":
+        sys.exit(main())
+    EOF
+
+
 
 ==============================================================================
 
