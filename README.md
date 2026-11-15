@@ -279,337 +279,337 @@ if target in s:
 
 解决无法在sidebar浏览器ctrl+f进行页内搜索的问题:
 
-sudo python3 - <<'EOF'
-#!/usr/bin/env python3
-"""One-click patch: find-in-page (Ctrl+F) for the DSH sidebar browser.
-
-Patches two files (idempotent, backups kept):
-  1. main.js   -- forward Ctrl+F pressed inside a <webview> guest to the
-                  embedder renderer. A guest swallows its own keys, so the
-                  embedder never sees Ctrl+F while the page has focus.
-  2. client.js -- the find bar UI + logic: bottom bar, prev/next buttons,
-                  match count, driven by the webview element's findInPage /
-                  found-in-page API (same core as BrowsMe and Vessel Browser;
-                  match highlight + scroll-to-match are native Chromium
-                  behaviour of findInPage).
-
-Run (in your own terminal, DSH bash cannot sudo):
-  sudo python3 - <<'EOF'
-  ... this file ...
-  EOF
-Then restart DeepSeek Harness. Re-running is safe (marker-checked).
-Paths can be overridden with DSH_FINDBAR_MAIN / DSH_FINDBAR_CLIENT.
-"""
-import os
-import shutil
-import subprocess
-import sys
-import tempfile
-
-MAIN = os.environ.get("DSH_FINDBAR_MAIN",
-                      "/opt/DeepSeek Harness/resources/app/lib/main.js")
-CLIENT = os.environ.get("DSH_FINDBAR_CLIENT",
-                        "/opt/DeepSeek Harness/resources/app/dsh/node_modules/@deepseek-ai/dsh-client-ui-sidebar-browser/lib/client.js")
-MARKER_MAIN = "DSH-FINDBAR-WEBVIEW"
-MARKER_CLIENT = "DSH-FINDBAR-CLIENT"
-
-MAIN_BLOCK = """// DSH-FINDBAR-WEBVIEW: forward Ctrl+F from sidebar browser guests to the embedder.
-if (!globalThis.__dshFindbarMainInstalled) {
-  globalThis.__dshFindbarMainInstalled = true;
-  app.on("web-contents-created", (_event, contents) => {
-    if (contents.getType() !== "webview") return;
-    contents.on("before-input-event", (event, input) => {
-      if (input.type !== "keyDown") return;
-      const isF = input.code === "KeyF" || input.key === "f" || input.key === "F";
-      if (!isF || !(input.control || input.meta) || input.alt) return;
-      event.preventDefault();
-      try {
-        const win = contents.getOwnerBrowserWindow() || BrowserWindow.getFocusedWindow()
-          || BrowserWindow.getAllWindows()[0];
-        if (win && !win.isDestroyed()) {
-          void win.webContents.executeJavaScript(
-            "window.dispatchEvent(new CustomEvent('dsh-find-toggle'))");
-        }
-      } catch (error) { console.error("DSH findbar forward failed", error); }
-    });
-  });
-}
-"""
-
-CLIENT_BLOCK = """// DSH-FINDBAR-CLIENT: sidebar browser find-in-page (Ctrl+F) -- bottom bar, prev/next, match count.
-(() => {
-  if (typeof document === "undefined" || typeof window === "undefined") return;
-  if (window.__dshFindbarInstalled) return;
-  window.__dshFindbarInstalled = true;
-
-  const STYLE = [
-    ".dsh-findbar{display:none;flex:none;align-items:center;gap:6px;padding:4px 8px;",
-    "border-top:.5px solid var(--dsw-alias-border-l3,#ddd);",
-    "background:var(--dsw-alias-bg-base,#fff);color:var(--dsw-alias-label-primary,#222)}",
-    ".dsh-findbar.dsh-findbar-open{display:flex}",
-    ".dsh-findbar input{flex:auto;min-width:0;height:26px;box-sizing:border-box;padding:0 8px;",
-    "color:var(--dsw-alias-label-primary,#222);font-size:12px;",
-    "background:var(--dsw-alias-bg-layer-1,#f5f5f5);",
-    "border:.5px solid var(--dsw-alias-border-l2,#ccc);border-radius:6px;outline:none}",
-    ".dsh-findbar input:focus{outline:1px solid var(--dsw-alias-state-business-primary,#0b57d0);outline-offset:-1px}",
-    ".dsh-findbar-count{min-width:52px;text-align:center;font-size:11px;",
-    "color:var(--dsw-alias-label-secondary,#666);white-space:nowrap}",
-    ".dsh-findbar-count.dsh-findbar-empty{color:var(--dsw-alias-state-error-primary,#c5221f)}",
-    ".dsh-findbar button{width:26px;height:26px;flex:none;padding:0;cursor:pointer;",
-    "color:var(--dsw-alias-label-secondary,#666);background:transparent;border:0;border-radius:6px;font-size:13px}",
-    ".dsh-findbar button:hover:not(:disabled){color:var(--dsw-alias-label-primary,#222);",
-    "background:var(--dsw-alias-interactive-bg-hover,#eee)}",
-    ".dsh-findbar button:disabled{color:var(--dsw-alias-label-quaternary,#bbb);cursor:default}",
-  ].join("");
-
-  function ensureStyle() {
-    if (document.getElementById("dsh-findbar-style")) return;
-    const style = document.createElement("style");
-    style.id = "dsh-findbar-style";
-    style.textContent = STYLE;
-    document.head.appendChild(style);
-  }
-
-  const barsByRoot = new WeakMap();
-  const wiredViews = new WeakSet();
-
-  function visibleWebview() {
-    const views = document.querySelectorAll("webview");
-    for (const v of views) { if (v.offsetParent !== null) return v; }
-    return views.length > 0 ? views[0] : null;
-  }
-
-  function rootFor(webview) {
-    let el = webview.parentElement;
-    let fallback = el;
-    for (let i = 0; i < 6 && el; i++) {
-      if (el.querySelector("form")) return el;
-      fallback = el;
-      el = el.parentElement;
+    sudo python3 - <<'EOF'
+    #!/usr/bin/env python3
+    """One-click patch: find-in-page (Ctrl+F) for the DSH sidebar browser.
+    
+    Patches two files (idempotent, backups kept):
+      1. main.js   -- forward Ctrl+F pressed inside a <webview> guest to the
+                      embedder renderer. A guest swallows its own keys, so the
+                      embedder never sees Ctrl+F while the page has focus.
+      2. client.js -- the find bar UI + logic: bottom bar, prev/next buttons,
+                      match count, driven by the webview element's findInPage /
+                      found-in-page API (same core as BrowsMe and Vessel Browser;
+                      match highlight + scroll-to-match are native Chromium
+                      behaviour of findInPage).
+    
+    Run (in your own terminal, DSH bash cannot sudo):
+      sudo python3 - <<'EOF'
+      ... this file ...
+      EOF
+    Then restart DeepSeek Harness. Re-running is safe (marker-checked).
+    Paths can be overridden with DSH_FINDBAR_MAIN / DSH_FINDBAR_CLIENT.
+    """
+    import os
+    import shutil
+    import subprocess
+    import sys
+    import tempfile
+    
+    MAIN = os.environ.get("DSH_FINDBAR_MAIN",
+                          "/opt/DeepSeek Harness/resources/app/lib/main.js")
+    CLIENT = os.environ.get("DSH_FINDBAR_CLIENT",
+                            "/opt/DeepSeek Harness/resources/app/dsh/node_modules/@deepseek-ai/dsh-client-ui-sidebar-browser/lib/client.js")
+    MARKER_MAIN = "DSH-FINDBAR-WEBVIEW"
+    MARKER_CLIENT = "DSH-FINDBAR-CLIENT"
+    
+    MAIN_BLOCK = """// DSH-FINDBAR-WEBVIEW: forward Ctrl+F from sidebar browser guests to the embedder.
+    if (!globalThis.__dshFindbarMainInstalled) {
+      globalThis.__dshFindbarMainInstalled = true;
+      app.on("web-contents-created", (_event, contents) => {
+        if (contents.getType() !== "webview") return;
+        contents.on("before-input-event", (event, input) => {
+          if (input.type !== "keyDown") return;
+          const isF = input.code === "KeyF" || input.key === "f" || input.key === "F";
+          if (!isF || !(input.control || input.meta) || input.alt) return;
+          event.preventDefault();
+          try {
+            const win = contents.getOwnerBrowserWindow() || BrowserWindow.getFocusedWindow()
+              || BrowserWindow.getAllWindows()[0];
+            if (win && !win.isDestroyed()) {
+              void win.webContents.executeJavaScript(
+                "window.dispatchEvent(new CustomEvent('dsh-find-toggle'))");
+            }
+          } catch (error) { console.error("DSH findbar forward failed", error); }
+        });
+      });
     }
-    return fallback || document.body;
-  }
-
-  function barFor(webview) {
-    return barsByRoot.get(rootFor(webview));
-  }
-
-  function updateCount(bar, result) {
-    if (!bar) return;
-    const count = bar.querySelector(".dsh-findbar-count");
-    const prev = bar.querySelector(".dsh-findbar-prev");
-    const next = bar.querySelector(".dsh-findbar-next");
-    const matches = result.matches || 0;
-    const active = result.activeMatchOrdinal || 0;
-    const query = bar.querySelector("input").value;
-    count.textContent = matches > 0 ? active + "/" + matches : (query ? "0/0" : "");
-    count.classList.toggle("dsh-findbar-empty", query !== "" && matches === 0);
-    const disabled = matches === 0;
-    if (prev) prev.disabled = disabled;
-    if (next) next.disabled = disabled;
-  }
-
-  function runFind(webview, bar, findNext, forward) {
-    const query = bar.querySelector("input").value;
-    try {
-      if (!query) {
-        webview.stopFindInPage("clearSelection");
-        updateCount(bar, { matches: 0, activeMatchOrdinal: 0 });
-        return;
+    """
+    
+    CLIENT_BLOCK = """// DSH-FINDBAR-CLIENT: sidebar browser find-in-page (Ctrl+F) -- bottom bar, prev/next, match count.
+    (() => {
+      if (typeof document === "undefined" || typeof window === "undefined") return;
+      if (window.__dshFindbarInstalled) return;
+      window.__dshFindbarInstalled = true;
+    
+      const STYLE = [
+        ".dsh-findbar{display:none;flex:none;align-items:center;gap:6px;padding:4px 8px;",
+        "border-top:.5px solid var(--dsw-alias-border-l3,#ddd);",
+        "background:var(--dsw-alias-bg-base,#fff);color:var(--dsw-alias-label-primary,#222)}",
+        ".dsh-findbar.dsh-findbar-open{display:flex}",
+        ".dsh-findbar input{flex:auto;min-width:0;height:26px;box-sizing:border-box;padding:0 8px;",
+        "color:var(--dsw-alias-label-primary,#222);font-size:12px;",
+        "background:var(--dsw-alias-bg-layer-1,#f5f5f5);",
+        "border:.5px solid var(--dsw-alias-border-l2,#ccc);border-radius:6px;outline:none}",
+        ".dsh-findbar input:focus{outline:1px solid var(--dsw-alias-state-business-primary,#0b57d0);outline-offset:-1px}",
+        ".dsh-findbar-count{min-width:52px;text-align:center;font-size:11px;",
+        "color:var(--dsw-alias-label-secondary,#666);white-space:nowrap}",
+        ".dsh-findbar-count.dsh-findbar-empty{color:var(--dsw-alias-state-error-primary,#c5221f)}",
+        ".dsh-findbar button{width:26px;height:26px;flex:none;padding:0;cursor:pointer;",
+        "color:var(--dsw-alias-label-secondary,#666);background:transparent;border:0;border-radius:6px;font-size:13px}",
+        ".dsh-findbar button:hover:not(:disabled){color:var(--dsw-alias-label-primary,#222);",
+        "background:var(--dsw-alias-interactive-bg-hover,#eee)}",
+        ".dsh-findbar button:disabled{color:var(--dsw-alias-label-quaternary,#bbb);cursor:default}",
+      ].join("");
+    
+      function ensureStyle() {
+        if (document.getElementById("dsh-findbar-style")) return;
+        const style = document.createElement("style");
+        style.id = "dsh-findbar-style";
+        style.textContent = STYLE;
+        document.head.appendChild(style);
       }
-      webview.findInPage(query, { forward: forward !== false, findNext: findNext === true, matchCase: false });
-    } catch (error) { console.error("DSH findbar find failed", error); }
-  }
-
-  function closeBar(webview, bar) {
-    bar.classList.remove("dsh-findbar-open");
-    try { webview.stopFindInPage("clearSelection"); } catch (error) {}
-    try { webview.focus(); } catch (error) {}
-  }
-
-  function wireWebview(webview) {
-    if (wiredViews.has(webview)) return;
-    wiredViews.add(webview);
-    webview.addEventListener("found-in-page", (event) => {
-      updateCount(barFor(webview), event.result || {});
-    });
-    webview.addEventListener("did-navigate", () => {
-      const bar = barFor(webview);
-      if (!bar) return;
-      try { webview.stopFindInPage("clearSelection"); } catch (error) {}
-      updateCount(bar, { matches: 0, activeMatchOrdinal: 0 });
-    });
-  }
-
-  function ensureBar(webview) {
-    const root = rootFor(webview);
-    let bar = barsByRoot.get(root);
-    if (bar) return bar;
-    ensureStyle();
-    bar = document.createElement("div");
-    bar.className = "dsh-findbar";
-    const input = document.createElement("input");
-    input.type = "text";
-    input.placeholder = "在页面中查找";
-    input.setAttribute("aria-label", "在页面中查找");
-    const count = document.createElement("span");
-    count.className = "dsh-findbar-count";
-    const prev = document.createElement("button");
-    prev.type = "button";
-    prev.className = "dsh-findbar-prev";
-    prev.textContent = "▲";
-    prev.title = "上一个 (Shift+Enter)";
-    prev.disabled = true;
-    const next = document.createElement("button");
-    next.type = "button";
-    next.className = "dsh-findbar-next";
-    next.textContent = "▼";
-    next.title = "下一个 (Enter)";
-    next.disabled = true;
-    const close = document.createElement("button");
-    close.type = "button";
-    close.className = "dsh-findbar-close";
-    close.textContent = "✕";
-    close.title = "关闭 (Esc)";
-    bar.appendChild(input);
-    bar.appendChild(count);
-    bar.appendChild(prev);
-    bar.appendChild(next);
-    bar.appendChild(close);
-    input.addEventListener("input", () => { runFind(webview, bar, false, true); });
-    input.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") { event.preventDefault(); runFind(webview, bar, true, !event.shiftKey); }
-      else if (event.key === "Escape") { event.preventDefault(); closeBar(webview, bar); }
-    });
-    prev.addEventListener("click", () => { runFind(webview, bar, true, false); input.focus(); });
-    next.addEventListener("click", () => { runFind(webview, bar, true, true); input.focus(); });
-    close.addEventListener("click", () => { closeBar(webview, bar); });
-    root.appendChild(bar);
-    barsByRoot.set(root, bar);
-    return bar;
-  }
-
-  function openBar() {
-    const webview = visibleWebview();
-    if (!webview) return;
-    wireWebview(webview);
-    const bar = ensureBar(webview);
-    if (bar.parentElement) bar.parentElement.appendChild(bar);
-    const input = bar.querySelector("input");
-    const wasOpen = bar.classList.contains("dsh-findbar-open");
-    bar.classList.add("dsh-findbar-open");
-    input.focus();
-    input.select();
-    if (input.value && !wasOpen) runFind(webview, bar, false, true);
-  }
-
-  document.addEventListener("keydown", (event) => {
-    if ((event.ctrlKey || event.metaKey) && (event.key === "f" || event.key === "F")) {
-      event.preventDefault();
-      openBar();
-    }
-  }, true);
-
-  window.addEventListener("dsh-find-toggle", openBar);
-})();
-"""
-
-
-def fail(msg):
-    print("ERROR:", msg)
-    sys.exit(1)
-
-
-def backup(path):
-    bak = path + ".before-findbar"
-    if os.path.exists(bak):
-        print("backup already exists, keep:", bak)
-    else:
-        shutil.copyfile(path, bak)
-        print("backup written:", bak)
-    return bak
-
-
-def node_check_content(content):
-    """Syntax-check JS text with node --check (as .mjs); None if no node."""
-    node = shutil.which("node")
-    if node is None:
-        return None
-    tmp = None
-    try:
-        with tempfile.NamedTemporaryFile("w", suffix=".mjs",
-                                         delete=False, encoding="utf-8") as f:
-            f.write(content)
-            tmp = f.name
-        r = subprocess.run([node, "--check", tmp],
-                           capture_output=True, text=True)
-        return r.returncode == 0
-    finally:
-        if tmp is not None and os.path.exists(tmp):
-            os.unlink(tmp)
-
-
-def check_syntax(label, path, before, after):
-    baseline = node_check_content(before)
-    if baseline is None:
-        print(label + ": node not found, syntax check skipped")
-        return
-    if baseline is False:
-        print(label + ": node --check does not accept the ORIGINAL file, check skipped")
-        return
-    if node_check_content(after) is False:
-        print("ERROR: " + label + " fails node --check after patch; restore with:")
-        print("  sudo cp " + path + ".before-findbar " + path)
+    
+      const barsByRoot = new WeakMap();
+      const wiredViews = new WeakSet();
+    
+      function visibleWebview() {
+        const views = document.querySelectorAll("webview");
+        for (const v of views) { if (v.offsetParent !== null) return v; }
+        return views.length > 0 ? views[0] : null;
+      }
+    
+      function rootFor(webview) {
+        let el = webview.parentElement;
+        let fallback = el;
+        for (let i = 0; i < 6 && el; i++) {
+          if (el.querySelector("form")) return el;
+          fallback = el;
+          el = el.parentElement;
+        }
+        return fallback || document.body;
+      }
+    
+      function barFor(webview) {
+        return barsByRoot.get(rootFor(webview));
+      }
+    
+      function updateCount(bar, result) {
+        if (!bar) return;
+        const count = bar.querySelector(".dsh-findbar-count");
+        const prev = bar.querySelector(".dsh-findbar-prev");
+        const next = bar.querySelector(".dsh-findbar-next");
+        const matches = result.matches || 0;
+        const active = result.activeMatchOrdinal || 0;
+        const query = bar.querySelector("input").value;
+        count.textContent = matches > 0 ? active + "/" + matches : (query ? "0/0" : "");
+        count.classList.toggle("dsh-findbar-empty", query !== "" && matches === 0);
+        const disabled = matches === 0;
+        if (prev) prev.disabled = disabled;
+        if (next) next.disabled = disabled;
+      }
+    
+      function runFind(webview, bar, findNext, forward) {
+        const query = bar.querySelector("input").value;
+        try {
+          if (!query) {
+            webview.stopFindInPage("clearSelection");
+            updateCount(bar, { matches: 0, activeMatchOrdinal: 0 });
+            return;
+          }
+          webview.findInPage(query, { forward: forward !== false, findNext: findNext === true, matchCase: false });
+        } catch (error) { console.error("DSH findbar find failed", error); }
+      }
+    
+      function closeBar(webview, bar) {
+        bar.classList.remove("dsh-findbar-open");
+        try { webview.stopFindInPage("clearSelection"); } catch (error) {}
+        try { webview.focus(); } catch (error) {}
+      }
+    
+      function wireWebview(webview) {
+        if (wiredViews.has(webview)) return;
+        wiredViews.add(webview);
+        webview.addEventListener("found-in-page", (event) => {
+          updateCount(barFor(webview), event.result || {});
+        });
+        webview.addEventListener("did-navigate", () => {
+          const bar = barFor(webview);
+          if (!bar) return;
+          try { webview.stopFindInPage("clearSelection"); } catch (error) {}
+          updateCount(bar, { matches: 0, activeMatchOrdinal: 0 });
+        });
+      }
+    
+      function ensureBar(webview) {
+        const root = rootFor(webview);
+        let bar = barsByRoot.get(root);
+        if (bar) return bar;
+        ensureStyle();
+        bar = document.createElement("div");
+        bar.className = "dsh-findbar";
+        const input = document.createElement("input");
+        input.type = "text";
+        input.placeholder = "在页面中查找";
+        input.setAttribute("aria-label", "在页面中查找");
+        const count = document.createElement("span");
+        count.className = "dsh-findbar-count";
+        const prev = document.createElement("button");
+        prev.type = "button";
+        prev.className = "dsh-findbar-prev";
+        prev.textContent = "▲";
+        prev.title = "上一个 (Shift+Enter)";
+        prev.disabled = true;
+        const next = document.createElement("button");
+        next.type = "button";
+        next.className = "dsh-findbar-next";
+        next.textContent = "▼";
+        next.title = "下一个 (Enter)";
+        next.disabled = true;
+        const close = document.createElement("button");
+        close.type = "button";
+        close.className = "dsh-findbar-close";
+        close.textContent = "✕";
+        close.title = "关闭 (Esc)";
+        bar.appendChild(input);
+        bar.appendChild(count);
+        bar.appendChild(prev);
+        bar.appendChild(next);
+        bar.appendChild(close);
+        input.addEventListener("input", () => { runFind(webview, bar, false, true); });
+        input.addEventListener("keydown", (event) => {
+          if (event.key === "Enter") { event.preventDefault(); runFind(webview, bar, true, !event.shiftKey); }
+          else if (event.key === "Escape") { event.preventDefault(); closeBar(webview, bar); }
+        });
+        prev.addEventListener("click", () => { runFind(webview, bar, true, false); input.focus(); });
+        next.addEventListener("click", () => { runFind(webview, bar, true, true); input.focus(); });
+        close.addEventListener("click", () => { closeBar(webview, bar); });
+        root.appendChild(bar);
+        barsByRoot.set(root, bar);
+        return bar;
+      }
+    
+      function openBar() {
+        const webview = visibleWebview();
+        if (!webview) return;
+        wireWebview(webview);
+        const bar = ensureBar(webview);
+        if (bar.parentElement) bar.parentElement.appendChild(bar);
+        const input = bar.querySelector("input");
+        const wasOpen = bar.classList.contains("dsh-findbar-open");
+        bar.classList.add("dsh-findbar-open");
+        input.focus();
+        input.select();
+        if (input.value && !wasOpen) runFind(webview, bar, false, true);
+      }
+    
+      document.addEventListener("keydown", (event) => {
+        if ((event.ctrlKey || event.metaKey) && (event.key === "f" || event.key === "F")) {
+          event.preventDefault();
+          openBar();
+        }
+      }, true);
+    
+      window.addEventListener("dsh-find-toggle", openBar);
+    })();
+    """
+    
+    
+    def fail(msg):
+        print("ERROR:", msg)
         sys.exit(1)
-    print(label + ": node --check OK")
-
-
-def patch_main():
-    if not os.path.exists(MAIN):
-        fail("main.js not found: " + MAIN)
-    content = open(MAIN, encoding="utf-8").read()
-    if MARKER_MAIN in content:
-        print("main.js: already patched, skip")
-        return
-    anchor = 'window.webContents.on("context-menu"'
-    ai = content.find(anchor)
-    if ai < 0:
-        fail("main.js: anchor not found: " + anchor)
-    wi = content.find('window.webContents.on("will-navigate"', ai)
-    if wi < 0:
-        fail("main.js: will-navigate anchor not found after context-menu")
-    line_start = content.rfind("\n", 0, wi) + 1
-    bak = backup(MAIN)
-    new = content[:line_start] + MAIN_BLOCK + "\n" + content[line_start:]
-    open(MAIN, "w", encoding="utf-8").write(new)
-    if MARKER_MAIN not in open(MAIN, encoding="utf-8").read():
-        fail("main.js: marker missing after write, restore from " + bak)
-    check_syntax("main.js", MAIN, content, new)
-    print("main.js: patched OK")
-
-
-def patch_client():
-    if not os.path.exists(CLIENT):
-        fail("client.js not found: " + CLIENT)
-    content = open(CLIENT, encoding="utf-8").read()
-    if MARKER_CLIENT in content:
-        print("client.js: already patched, skip")
-        return
-    bak = backup(CLIENT)
-    if not content.endswith("\n"):
-        content += "\n"
-    new = content + CLIENT_BLOCK + "\n"
-    open(CLIENT, "w", encoding="utf-8").write(new)
-    if MARKER_CLIENT not in open(CLIENT, encoding="utf-8").read():
-        fail("client.js: marker missing after write, restore from " + bak)
-    check_syntax("client.js", CLIENT, content, new)
-    print("client.js: patched OK")
-
-
-patch_main()
-patch_client()
-print("done -- restart DeepSeek Harness, then Ctrl+F in a sidebar browser tab.")
-EOF
+    
+    
+    def backup(path):
+        bak = path + ".before-findbar"
+        if os.path.exists(bak):
+            print("backup already exists, keep:", bak)
+        else:
+            shutil.copyfile(path, bak)
+            print("backup written:", bak)
+        return bak
+    
+    
+    def node_check_content(content):
+        """Syntax-check JS text with node --check (as .mjs); None if no node."""
+        node = shutil.which("node")
+        if node is None:
+            return None
+        tmp = None
+        try:
+            with tempfile.NamedTemporaryFile("w", suffix=".mjs",
+                                             delete=False, encoding="utf-8") as f:
+                f.write(content)
+                tmp = f.name
+            r = subprocess.run([node, "--check", tmp],
+                               capture_output=True, text=True)
+            return r.returncode == 0
+        finally:
+            if tmp is not None and os.path.exists(tmp):
+                os.unlink(tmp)
+    
+    
+    def check_syntax(label, path, before, after):
+        baseline = node_check_content(before)
+        if baseline is None:
+            print(label + ": node not found, syntax check skipped")
+            return
+        if baseline is False:
+            print(label + ": node --check does not accept the ORIGINAL file, check skipped")
+            return
+        if node_check_content(after) is False:
+            print("ERROR: " + label + " fails node --check after patch; restore with:")
+            print("  sudo cp " + path + ".before-findbar " + path)
+            sys.exit(1)
+        print(label + ": node --check OK")
+    
+    
+    def patch_main():
+        if not os.path.exists(MAIN):
+            fail("main.js not found: " + MAIN)
+        content = open(MAIN, encoding="utf-8").read()
+        if MARKER_MAIN in content:
+            print("main.js: already patched, skip")
+            return
+        anchor = 'window.webContents.on("context-menu"'
+        ai = content.find(anchor)
+        if ai < 0:
+            fail("main.js: anchor not found: " + anchor)
+        wi = content.find('window.webContents.on("will-navigate"', ai)
+        if wi < 0:
+            fail("main.js: will-navigate anchor not found after context-menu")
+        line_start = content.rfind("\n", 0, wi) + 1
+        bak = backup(MAIN)
+        new = content[:line_start] + MAIN_BLOCK + "\n" + content[line_start:]
+        open(MAIN, "w", encoding="utf-8").write(new)
+        if MARKER_MAIN not in open(MAIN, encoding="utf-8").read():
+            fail("main.js: marker missing after write, restore from " + bak)
+        check_syntax("main.js", MAIN, content, new)
+        print("main.js: patched OK")
+    
+    
+    def patch_client():
+        if not os.path.exists(CLIENT):
+            fail("client.js not found: " + CLIENT)
+        content = open(CLIENT, encoding="utf-8").read()
+        if MARKER_CLIENT in content:
+            print("client.js: already patched, skip")
+            return
+        bak = backup(CLIENT)
+        if not content.endswith("\n"):
+            content += "\n"
+        new = content + CLIENT_BLOCK + "\n"
+        open(CLIENT, "w", encoding="utf-8").write(new)
+        if MARKER_CLIENT not in open(CLIENT, encoding="utf-8").read():
+            fail("client.js: marker missing after write, restore from " + bak)
+        check_syntax("client.js", CLIENT, content, new)
+        print("client.js: patched OK")
+    
+    
+    patch_main()
+    patch_client()
+    print("done -- restart DeepSeek Harness, then Ctrl+F in a sidebar browser tab.")
+    EOF
 
 
 ==============================================================================
