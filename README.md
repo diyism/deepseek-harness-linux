@@ -617,7 +617,7 @@ if target in s:
 
     sudo python3 - <<'EOF'
     #!/usr/bin/env python3
-    """DSH three-column widths patch — one-click script.
+    """DSH three-column widths patch — one-click script (v2).
     
     Target (verified 2026-11-15 on the installed build):
       /opt/DeepSeek Harness/resources/app/dsh/node_modules/@deepseek-ai/dsh-client-ui-layout/lib/client.js
@@ -638,6 +638,17 @@ if target in s:
         L239 layoutInfo.sidebar === 0 ? 280 : layoutInfo.sidebar  (AppFrame preference)
         L420 d.layoutInfo.sidebar === 0 ? 280 : 0             (toggle reopen)
     
+    v2 adds an 8th edit — resize recompute:
+      L426 setViewportWidth: after "d.layoutInfo.viewportWidth = width;" insert
+        if (d.layoutInfo.rightbar !== null)
+          d.layoutInfo.rightbar = Math.max(300, Math.round(width * RIGHTBAR_DEFAULT_RATIO));
+      Upstream deliberately keeps the px preference across resizes; this overrides
+      that so the rightbar re-derives from the 0.667 ratio on every window-width
+      change. The setter early-returns when the width is unchanged, so this only
+      runs on real resizes. A manual drag is preserved until the next resize.
+      rightbar === null (never opened) is left alone so openRightbar still
+      initializes it on first open.
+    
     Result at a 1918px viewport: 264 : 375 : 1279.
     SIDEBAR_MIN (264) and RIGHTBAR_MAX_RATIO (0.7) are untouched.
     
@@ -648,6 +659,7 @@ if target in s:
     Then restart DSH. Re-run after DSH updates (they overwrite client.js).
     Backup: client.js.before-widths (created once, never overwritten).
     Idempotent: re-running reports "already patched" and changes nothing.
+    Safe to run over a v1-patched file — the 7 v1 edits are skipped as done.
     """
     import os
     import re
@@ -684,6 +696,14 @@ if target in s:
         ("sidebar default toggle (L420)",
          "d.layoutInfo.sidebar === 0 ? 280 : 0",
          "d.layoutInfo.sidebar === 0 ? 264 : 0"),
+    ]
+    
+    # Insertion edits: (label, anchor, inserted_line). The inserted line goes on
+    # its own line right after the anchor line, reusing its indentation.
+    INSERTS = [
+        ("resize recompute (L426)",
+         "d.layoutInfo.viewportWidth = width;",
+         "if (d.layoutInfo.rightbar !== null) d.layoutInfo.rightbar = Math.max(300, Math.round(width * RIGHTBAR_DEFAULT_RATIO));"),
     ]
     
     VIEWPORT = 1918
@@ -735,8 +755,22 @@ if target in s:
                       "(new: %d) — aborting, nothing changed."
                       % (label, n_old, n_new))
                 return 1
-        if not todo:
-            print("Already patched: all 7 edits present. Nothing to do.")
+        insert_todo = []
+        for label, anchor, line in INSERTS:
+            n_anchor = content.count(anchor)
+            n_line = content.count(line)
+            if n_line >= 1:
+                print("already done: %s" % label)
+            elif n_anchor == 1:
+                insert_todo.append((label, anchor, line))
+            else:
+                print("ERROR: %s: expected anchor once, found %d "
+                      "(line: %d) — aborting, nothing changed."
+                      % (label, n_anchor, n_line))
+                return 1
+        if not todo and not insert_todo:
+            print("Already patched: all %d edits present. Nothing to do."
+                  % (len(EDITS) + len(INSERTS)))
             return 0
     
         baseline = node_check(CLIENT)
@@ -758,10 +792,20 @@ if target in s:
         for label, old, new in todo:
             new_content = new_content.replace(old, new, 1)
             print("patched: %s" % label)
+        for label, anchor, line in insert_todo:
+            lines = new_content.split("\n")
+            for i, ln in enumerate(lines):
+                if anchor in ln:
+                    indent = ln[:len(ln) - len(ln.lstrip())]
+                    lines.insert(i + 1, indent + line)
+                    break
+            new_content = "\n".join(lines)
+            print("patched: %s" % label)
         with open(CLIENT, "w", encoding="utf-8", errors="surrogateescape") as f:
             f.write(new_content)
     
-        # Verify: every new string present exactly once, every old string gone.
+        # Verify: every new string present exactly once, every old string gone,
+        # every inserted line present exactly once.
         with open(CLIENT, encoding="utf-8", errors="surrogateescape") as f:
             check = f.read()
         ok = True
@@ -769,6 +813,10 @@ if target in s:
             if check.count(new) != 1 or check.count(old) != 0:
                 print("VERIFY FAILED: %s (new=%d, old=%d)"
                       % (label, check.count(new), check.count(old)))
+                ok = False
+        for label, anchor, line in INSERTS:
+            if check.count(line) != 1:
+                print("VERIFY FAILED: %s (line=%d)" % (label, check.count(line)))
                 ok = False
         if not ok:
             shutil.copy2(BACKUP, CLIENT)
@@ -783,7 +831,8 @@ if target in s:
                 print("Patched client.js FAILS node --check — restored original.")
                 return 1
     
-        print("Done: %d edit(s) applied. Restart DSH to take effect." % len(todo))
+        print("Done: %d edit(s) applied. Restart DSH to take effect."
+              % (len(todo) + len(insert_todo)))
         print("Expected columns at 1918px: 264 : 375 : 1279.")
         return 0
     
@@ -791,7 +840,6 @@ if target in s:
     if __name__ == "__main__":
         sys.exit(main())
     EOF
-
 
 
 ==============================================================================
